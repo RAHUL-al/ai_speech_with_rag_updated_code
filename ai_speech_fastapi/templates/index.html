@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio WebSocket Test</title>
+</head>
+<body>
+    <h2>🎤 WebSocket Audio Streamer</h2>
+    <button id="start">Start Recording</button>
+    <button id="stop" disabled>Stop Recording</button>
+    <p id="status">Status: Not connected</p>
+
+    <script>
+        let mediaRecorder;
+        let ws;
+        const username = "rahul";  // 🔁 Use any valid user
+        const token = encodeURIComponent(encodeURIComponent("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJpeGZFNURGY04xWE9MQ1hCdXpnViIsImV4cCI6MTc1MjQzNzE0N30.tVQ_LNzKXS1npsuP1ea9TZWz2em-taJE7W51FO75W7I"));  // 🔁 Replace with actual JWT token
+        const wsUrl = `ws://13.127.239.8/ws/audio?username=${username}&token=${token}`;
+
+        document.getElementById("start").onclick = async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                document.getElementById("status").textContent = "Status: Connected and recording...";
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: "audio/webm"  // Most supported
+                });
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+                        e.data.arrayBuffer().then(buffer => {
+                            ws.send(buffer);  // 🔁 Backend expects raw audio buffer
+                        });
+                    }
+                };
+
+                mediaRecorder.start(1000); // Record in 1-second chunks
+                document.getElementById("start").disabled = true;
+                document.getElementById("stop").disabled = false;
+            };
+
+            ws.onerror = (err) => {
+                console.error("WebSocket error:", err);
+                document.getElementById("status").textContent = "Status: WebSocket error";
+            };
+        };
+
+        document.getElementById("stop").onclick = () => {
+            mediaRecorder.stop();
+            ws.close();
+            document.getElementById("status").textContent = "Status: Recording stopped.";
+            document.getElementById("start").disabled = false;
+            document.getElementById("stop").disabled = true;
+        };
+    </script>
+</body>
+</html>
